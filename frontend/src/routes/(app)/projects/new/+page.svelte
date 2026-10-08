@@ -40,7 +40,6 @@
 		templateNameSlug,
 		type ProjectEditorLayoutMode
 	} from '#lib/utils/compose-flow.js';
-	import { matchesShortcutEvent } from '#lib/utils/navigation.js';
 	import { preventDefault, createForm } from '#lib/utils/settings.svelte.js';
 	import {
 		getTemplateEditorValidationState,
@@ -180,14 +179,6 @@
 	// effective name without writing to form state reactively.
 	const effectiveName = $derived(composeYamlName ?? inputs.name.value);
 	const createMenuBusy = $derived(ui.saving || ui.converting || ui.isLoadingTemplateContent);
-	const createDisabled = $derived(!effectiveName || !inputs.composeContent.value || hasEditorErrors || createMenuBusy);
-
-	// Always swallow Ctrl/Cmd+S here so the browser's "save page" dialog never opens.
-	function handleCreateShortcut(event: KeyboardEvent) {
-		if (!matchesShortcutEvent(['mod', 's'], event)) return;
-		event.preventDefault();
-		if (canCreateProject && !createDisabled) handleSubmit();
-	}
 
 	async function handleSubmit() {
 		if (sourceContainerIds.length > 0 && canDeleteContainers) {
@@ -269,8 +260,6 @@
 		} as const;
 	}
 </script>
-
-<svelte:window onkeydown={handleCreateShortcut} />
 
 {#snippet newProjectWorkspaceEditor()}
 	{#key activeProjectTab}
@@ -370,10 +359,11 @@
 					tooltipDescription={m.compose_project_name_tooltip_description()}
 					tooltipExample={m.compose_project_name_tooltip_example()}
 					showCreateButton={!hasEditorErrors && canCreateProject}
-					{createDisabled}
+					createDisabled={!effectiveName || !inputs.composeContent.value || hasEditorErrors || createMenuBusy}
 					createLoading={ui.saving}
 					createLabel={m.compose_create_project()}
 					createLoadingLabel={m.common_action_creating()}
+					createShortcut={['mod', 's']}
 					onCreate={() => handleSubmit()}
 					itemsDisabled={createMenuBusy}
 					showUseTemplate={canUseTemplates}

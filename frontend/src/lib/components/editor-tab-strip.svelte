@@ -23,7 +23,7 @@
 
 	let { tabs, activeKey, onSelect, onClose, actions }: Props = $props();
 
-	// Middle-click closes like browser and IDE tabs; preventing mousedown stops Windows auto-scroll.
+	// Middle-click anywhere on a tab closes it like browser and IDE tabs; preventing mousedown stops Windows auto-scroll.
 	function preventMiddleMouseDown(event: MouseEvent) {
 		if (event.button === 1) event.preventDefault();
 	}
@@ -39,6 +39,7 @@
 	<div class="scrollbar-hide flex h-full min-w-0 flex-1 items-center overflow-x-auto">
 		{#each tabs as tab (tab.key)}
 			{@const isActive = activeKey === tab.key}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class={cn(
 					'group relative flex h-full shrink-0 items-center border-r border-border',
@@ -46,6 +47,8 @@
 				)}
 				data-tab-key={tab.key}
 				data-active={isActive}
+				onmousedown={preventMiddleMouseDown}
+				onauxclick={(event) => closeOnMiddleClick(event, tab.key)}
 			>
 				{#if isActive}
 					<span class="absolute inset-x-0 top-0 h-0.5 bg-primary"></span>
@@ -58,8 +61,6 @@
 					)}
 					title={tab.title}
 					onclick={() => onSelect(tab.key)}
-					onmousedown={preventMiddleMouseDown}
-					onauxclick={(event) => closeOnMiddleClick(event, tab.key)}
 				>
 					<FileTextIcon class={cn('size-3.5 shrink-0', tab.iconClass)} />
 					<span class="max-w-40 truncate">{tab.label}</span>
@@ -80,8 +81,6 @@
 					)}
 					aria-label={m.common_close()}
 					onclick={() => onClose(tab.key)}
-					onmousedown={preventMiddleMouseDown}
-					onauxclick={(event) => closeOnMiddleClick(event, tab.key)}
 				>
 					<CloseIcon class="size-3" />
 				</button>

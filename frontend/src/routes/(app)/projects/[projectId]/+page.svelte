@@ -72,7 +72,7 @@
 	import { getStatusVariant, getThemedIconUrl } from '#lib/utils/docker.js';
 	import { capitalizeFirstLetter } from '#lib/utils/formatting.js';
 	import { gitOpsComposeEditUrl, gitOpsFileEditUrl, gitOpsProjectUrl } from '#lib/utils/gitops.js';
-	import { matchesShortcutEvent, toGitRouteUrl, toSafeHref } from '#lib/utils/navigation.js';
+	import { toGitRouteUrl, toSafeHref } from '#lib/utils/navigation.js';
 	import { createForm } from '#lib/utils/settings.svelte.js';
 	import { globalVariablesToMap } from '#lib/utils/template-load.js';
 	import { tryCatch } from '#lib/utils/try-catch.js';
@@ -814,13 +814,6 @@
 		}
 	}
 
-	// Always swallow Ctrl/Cmd+S here so the browser's "save page" dialog never opens.
-	function handleSaveShortcut(event: KeyboardEvent) {
-		if (!matchesShortcutEvent(['mod', 's'], event)) return;
-		event.preventDefault();
-		if (canSave && !isLoading.saving) handleSaveChanges();
-	}
-
 	function saveNameIfChanged() {
 		if (project?.isArchived) return;
 		if (effectiveName === serverName) return;
@@ -1478,8 +1471,6 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleSaveShortcut} />
-
 {#snippet projectComposeTab(project: Project)}
 	<Tabs.Content value="compose" class="h-full min-h-0">
 		<div class="flex h-full min-h-0 flex-col">
@@ -1541,6 +1532,7 @@
 								disabled={!canSave}
 								loading={isLoading.saving}
 								loadingLabel={m.common_saving()}
+								shortcut={['mod', 's']}
 								onclick={handleSaveChanges}
 							/>
 						</div>
