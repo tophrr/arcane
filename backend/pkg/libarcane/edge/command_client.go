@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
 	"net/http"
 	"slices"
 	"time"
@@ -17,7 +19,11 @@ const (
 	// manager->agent, cancel_request agent->manager) instead of the legacy
 	// re-encoded forms.
 	tunnelCapabilityProtoParity = "proto-parity-v1"
-	bodyTransferMetadataKey     = "body_transfer_id"
+	// tunnelCapabilityCommandCredit signals credit-based flow control for command output: the
+	// agent keeps at most commandCreditWindow bytes unconsumed by the manager.
+	tunnelCapabilityCommandCredit = "command-credit-v1"
+	commandCreditWindow           = 8 << 20
+	bodyTransferMetadataKey       = "body_transfer_id"
 )
 
 func NewCommandClient() *CommandClient {
@@ -101,8 +107,22 @@ func (c *CommandClient) Execute(ctx context.Context, tunnel *AgentTunnel, req *C
 		}
 	}
 
-	status, headers, body, err := collectCommandResponseInternal(ctx, tunnel, pending, req.Method)
+	// Output the collector has consumed is credited back, so the agent cannot outrun a slow reader.
+	var credit func(int)
+	if slices.Contains(tunnel.Capabilities, tunnelCapabilityCommandCredit) {
+		credit = func(consumed int) {
+			if creditErr := tunnel.Conn.Send(&TunnelMessage{ID: requestID, Type: MessageTypeCommandCredit, Credit: int64(consumed)}); creditErr != nil {
+				slog.DebugContext(ctx, "Failed to send edge command credit", "id", requestID, "error", creditErr)
+			}
+		}
+	}
+
+	status, headers, body, err := collectCommandResponseInternal(ctx, tunnel, pending, req.Method, req.Output, credit)
 	if err != nil {
+		if credit != nil {
+			// Release an agent still waiting to send output that nobody will read.
+			credit(math.MaxInt32)
+		}
 		return nil, err
 	}
 
