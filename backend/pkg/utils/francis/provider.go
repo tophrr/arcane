@@ -70,7 +70,7 @@ func StoreURL(databaseURL string) (string, error) {
 
 func providerOption(storeURL string) local.HostOption {
 	if strings.HasPrefix(storeURL, "file:") {
-		return local.WithSQLiteProvider(sqlite.SQLiteProviderOptions{ConnectionString: storeURL, TablePrefix: TablePrefix})
+		return local.WithSQLiteProvider(sqlite.SQLiteProviderOptions{ConnectionString: storeURL + "?_pragma=busy_timeout(2500)", TablePrefix: TablePrefix})
 	}
 	return local.WithPostgresProvider(postgres.PostgresProviderOptions{ConnectionString: storeURL, TablePrefix: TablePrefix})
 }
@@ -83,7 +83,7 @@ func openProvider(ctx context.Context, storeURL string) (components.ActorProvide
 	var provider components.ActorProvider
 	var err error
 	if strings.HasPrefix(storeURL, "file:") {
-		provider, err = sqlite.NewSQLiteProvider(slog.Default(), sqlite.SQLiteProviderOptions{ConnectionString: storeURL, TablePrefix: TablePrefix}, cfg)
+		provider, err = sqlite.NewSQLiteProvider(slog.Default(), sqlite.SQLiteProviderOptions{ConnectionString: storeURL + "?_pragma=busy_timeout(2500)", TablePrefix: TablePrefix}, cfg)
 	} else {
 		provider, err = postgres.NewPostgresProvider(slog.Default(), postgres.PostgresProviderOptions{ConnectionString: storeURL, TablePrefix: TablePrefix}, cfg)
 	}
