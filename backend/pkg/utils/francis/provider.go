@@ -42,8 +42,8 @@ func StorePath(databasePath string) string {
 	return strings.TrimSuffix(databasePath, extension) + ".francis" + cmp.Or(extension, ".db")
 }
 
-// StoreURL resolves Francis storage: a sibling SQLite file without application
-// pragmas, or the Postgres URL unchanged.
+// StoreURL resolves Francis storage: a sibling SQLite file carrying the transaction
+// parameters of the main database, or the Postgres URL unchanged.
 func StoreURL(databaseURL string) (string, error) {
 	switch {
 	case strings.HasPrefix(databaseURL, "file:"):
@@ -60,7 +60,20 @@ func StoreURL(databaseURL string) (string, error) {
 		if databasePath == "" || strings.HasPrefix(databasePath, ":memory:") || parsed.Query().Get("mode") == "memory" {
 			return "", errors.New("actor storage requires a file-backed SQLite database")
 		}
-		return "file:" + (&url.URL{Path: StorePath(databasePath)}).EscapedPath(), nil
+		// Carry the connection parameters across: without _txlock=immediate a transaction that
+		// reads before writing can take a stale WAL snapshot and fail with SQLITE_BUSY_SNAPSHOT,
+		// which no busy timeout can wait out.
+		params := url.Values{}
+		for _, key := range []string{"_pragma", "_txlock"} {
+			for _, value := range parsed.Query()[key] {
+				params.Add(key, value)
+			}
+		}
+		target := "file:" + (&url.URL{Path: StorePath(databasePath)}).EscapedPath()
+		if len(params) > 0 {
+			target += "?" + params.Encode()
+		}
+		return target, nil
 	case strings.HasPrefix(databaseURL, "postgres"):
 		return databaseURL, nil
 	default:
