@@ -1,0 +1,57 @@
+name: Fork image (Francis busy_timeout fix)
+
+# Builds a container image from THIS FORK ONLY, to verify the one-line fix in
+# backend/pkg/utils/francis/provider.go: the Francis SQLite provider connection string now
+# carries the same busy timeout the GORM connection in runtime.go already sets, so a
+# concurrent writer waits instead of failing instantly with SQLITE_BUSY.
+#
+# Upstream's release pipeline needs Depot runners and their app secrets, so this is a
+# minimal replacement. Nothing here pushes to getarcaneapp/arcane; the image lands in this
+# fork's own GHCR namespace.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag to publish
+        required: true
+        default: v2.15.1-busytimeout
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read the version from .arcane.json
+        id: v
+        run: echo "version=$(jq -r '.version' .arcane.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push linux/amd64
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/arcane:${{ inputs.tag }}
+          build-args: |
+            VERSION=${{ steps.v.outputs.version }}
+            REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
