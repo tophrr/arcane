@@ -88,10 +88,14 @@ func providerOption(storeURL string) local.HostOption {
 	return local.WithPostgresProvider(postgres.PostgresProviderOptions{ConnectionString: storeURL, TablePrefix: TablePrefix})
 }
 
+// actorHostHealthCheckDeadline is how stale a host's last health check may be before Francis treats
+// it as unhealthy. A stalled actor store must not retire the only host.
+const actorHostHealthCheckDeadline = 10 * time.Minute
+
 // openProvider opens an offline Francis provider on storeURL. Close it when done.
 func openProvider(ctx context.Context, storeURL string) (components.ActorProvider, error) {
 	cfg := components.NewProviderConfig()
-	cfg.HostHealthCheckDeadline = 90 * time.Second
+	cfg.HostHealthCheckDeadline = actorHostHealthCheckDeadline
 	cfg.MaxHosts = 1
 	var provider components.ActorProvider
 	var err error
